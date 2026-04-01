@@ -2,7 +2,7 @@
 # Cross-platform build system for the P2P sync engine
 
 # Build variables
-BINARY_NAME := p2psync
+BINARY_NAME := p2p-file-sync
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -46,13 +46,13 @@ all: deps build
 
 build: ## Build the binary
 	@echo "Building $(BINARY_NAME)..."
-	@$(MKDIR) $(BUILD_DIR) 2>/dev/null || true
+	@mkdir -p $(BUILD_DIR)
 	$(GOBUILD) $(LDFLAGS) -o $(BINARY) $(CMD_DIR)
 	@echo "Built: $(BINARY)"
 
-build-all: ## Build for all platforms
+build-all: ## Build for all platforms (use build-all.ps1 on Windows PowerShell)
 	@echo "Building for multiple platforms..."
-	@$(MKDIR) $(BUILD_DIR) 2>/dev/null || true
+	@mkdir -p $(BUILD_DIR)
 	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(CMD_DIR)
 	GOOS=linux GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(CMD_DIR)
 	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(CMD_DIR)
