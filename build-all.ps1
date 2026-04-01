@@ -3,8 +3,13 @@
 
 $ErrorActionPreference = "Stop"
 
-$version = git describe --tags --always 2>$null
+$version = git describe --tags --always --dirty 2>$null
 if (-not $version) { $version = "dev" }
+
+$commit = git rev-parse --short HEAD 2>$null
+if (-not $commit) { $commit = "none" }
+
+$date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
 Write-Host "Building p2p-file-sync $version for all platforms..." -ForegroundColor Cyan
 
@@ -23,7 +28,7 @@ foreach ($t in $targets) {
     Write-Host "  Building $output..."
     $env:GOOS = $t.GOOS
     $env:GOARCH = $t.GOARCH
-    go build -ldflags "-X main.version=$version" -o $output ./cmd/p2p-file-sync
+    go build -ldflags "-X main.version=$version -X main.commit=$commit -X main.date=$date" -o $output ./cmd/p2p-file-sync
 }
 
 Write-Host "`nBuild complete!" -ForegroundColor Green
