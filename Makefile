@@ -18,7 +18,7 @@ GOFMT := $(GOCMD) fmt
 GOVET := $(GOCMD) vet
 
 # Directories
-CMD_DIR := ./cmd/p2psync
+CMD_DIR := ./cmd/p2p-file-sync
 BUILD_DIR := ./build
 COVERAGE_DIR := ./coverage
 
