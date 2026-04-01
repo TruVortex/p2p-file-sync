@@ -1,0 +1,156 @@
+syntax = "proto3";
+
+package p2psync;
+
+option go_package = "p2p-file-sync/internal/proto";
+
+// MessageType identifies the type of message being sent.
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  MESSAGE_TYPE_HANDSHAKE = 1;
+  MESSAGE_TYPE_HANDSHAKE_ACK = 2;
+  MESSAGE_TYPE_MANIFEST_REQUEST = 3;
+  MESSAGE_TYPE_MANIFEST_RESPONSE = 4;
+  MESSAGE_TYPE_CHUNK_REQUEST = 5;
+  MESSAGE_TYPE_CHUNK_RESPONSE = 6;
+  MESSAGE_TYPE_ERROR = 7;
+}
+
+// Envelope wraps all messages with type and optional request ID for correlation.
+message Envelope {
+  MessageType type = 1;
+  uint64 request_id = 2;  // For request/response correlation
+  bytes payload = 3;      // Serialized inner message
+}
+
+// Handshake is sent when a peer initiates connection.
+message Handshake {
+  // Protocol version for compatibility checking
+  uint32 protocol_version = 1;
+  
+  // SHA-256 fingerprint of peer's TLS certificate (32 bytes)
+  bytes cert_fingerprint = 2;
+  
+  // Human-readable peer name (optional)
+  string peer_name = 3;
+  
+  // Capabilities bitmap for feature negotiation
+  uint64 capabilities = 4;
+  
+  // Current Merkle root hash of peer's tracked directory
+  bytes merkle_root = 5;
+  
+  // Number of files tracked
+  uint64 file_count = 6;
+  
+  // Total size in bytes
+  uint64 total_size = 7;
+}
+
+// HandshakeAck acknowledges a handshake and provides peer info.
+message HandshakeAck {
+  // Whether handshake was accepted
+  bool accepted = 1;
+  
+  // Reason for rejection (if not accepted)
+  string rejection_reason = 2;
+  
+  // SHA-256 fingerprint of this peer's TLS certificate
+  bytes cert_fingerprint = 3;
+  
+  // Peer's name
+  string peer_name = 4;
+  
+  // Peer's current Merkle root
+  bytes merkle_root = 5;
+  
+  // Negotiated protocol version
+  uint32 protocol_version = 6;
+}
+
+// ManifestRequest requests the Merkle tree manifest from a peer.
+message ManifestRequest {
+  // Optional: request only a subtree starting at this path
+  string subtree_path = 1;
+  
+  // Maximum depth to return (-1 for unlimited)
+  int32 max_depth = 2;
+  
+  // If true, include chunk hashes in file nodes
+  bool include_chunks = 3;
+}
+
+// ManifestResponse contains the Merkle tree structure.
+message ManifestResponse {
+  // Root node of the tree/subtree
+  ManifestNode root = 1;
+  
+  // Total number of nodes in response
+  uint64 node_count = 2;
+}
+
+// ManifestNode represents a single node in the Merkle tree.
+message ManifestNode {
+  // File or directory name
+  string name = 1;
+  
+  // True if directory, false if file
+  bool is_dir = 2;
+  
+  // SHA-256 hash of this node
+  bytes hash = 3;
+  
+  // File permissions
+  uint32 mode = 4;
+  
+  // Size in bytes
+  uint64 size = 5;
+  
+  // Children (for directories)
+  repeated ManifestNode children = 6;
+  
+  // Chunk hashes (for files, if requested)
+  repeated bytes chunks = 7;
+}
+
+// ChunkRequest requests one or more chunks by hash.
+message ChunkRequest {
+  // Hashes of requested chunks (can batch multiple)
+  repeated bytes chunk_hashes = 1;
+  
+  // Priority hint (higher = more urgent)
+  uint32 priority = 2;
+}
+
+// ChunkResponse returns requested chunks.
+message ChunkResponse {
+  // The chunks being returned
+  repeated Chunk chunks = 1;
+  
+  // Hashes that were not found
+  repeated bytes not_found = 2;
+}
+
+// Chunk represents a single content-addressed data block.
+message Chunk {
+  // SHA-256 hash of the chunk data
+  bytes hash = 1;
+  
+  // Actual chunk data
+  bytes data = 2;
+  
+  // Size of data (for validation)
+  uint32 size = 3;
+}
+
+// ErrorMessage reports an error to the peer.
+message ErrorMessage {
+  // Error code
+  uint32 code = 1;
+  
+  // Human-readable error message
+  string message = 2;
+  
+  // Request ID that caused the error (if applicable)
+  uint64 request_id = 3;
+}
