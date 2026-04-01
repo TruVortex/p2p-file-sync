@@ -134,12 +134,45 @@ Metrics available at `http://localhost:9090/metrics`:
 Synchronize with a remote peer.
 
 ```bash
-# Direct IP connection
+# Direct connection (LAN or known IP)
 p2p-file-sync sync 192.168.1.50:4433
-
-# With progress visualization
-p2p-file-sync sync peer.example.com:4433 --verbose
 ```
+
+**For peers behind NAT**, use the signaling server for peer discovery and hole punching:
+
+```bash
+# Start the signaling server (on a VPS with public IP)
+p2p-file-sync signal --addr :9000
+
+# Peer A: Register and wait for Peer B
+p2p-file-sync sync --signal wss://signal.example.com:9000 --peer-id alice
+
+# Peer B: Connect to Peer A via signaling
+p2p-file-sync sync --signal wss://signal.example.com:9000 --peer-id bob --target alice
+```
+
+**How NAT Traversal Works:**
+
+```
+┌─────────┐         ┌─────────────────┐         ┌─────────┐
+│ Peer A  │◄───────►│ Signaling Server│◄───────►│ Peer B  │
+│ (NAT)   │         │ (Public VPS)    │         │ (NAT)   │
+└────┬────┘         └────────┬────────┘         └────┬────┘
+     │                       │                       │
+     │  1. Register          │         1. Register   │
+     │──────────────────────►│◄──────────────────────│
+     │                       │                       │
+     │  2. Exchange public IP:port via STUN          │
+     │◄─────────────────────►│◄─────────────────────►│
+     │                       │                       │
+     │  3. UDP Hole Punch (SYN/SYN-ACK/ACK)         │
+     │◄─────────────────────────────────────────────►│
+     │                       │                       │
+     │  4. Direct QUIC connection established        │
+     │◄═════════════════════════════════════════════►│
+```
+
+If UDP hole punching fails after 5 attempts (common with symmetric NAT), the system automatically falls back to a TCP relay.
 
 ### `watch [directory]`
 Watch directory for file changes and automatically trigger re-chunking and Merkle tree updates.
@@ -241,6 +274,31 @@ go vet ./...
 # Run linter (requires golangci-lint)
 golangci-lint run ./...
 ```
+
+## Design Trade-offs
+
+Key architectural decisions and their rationale:
+
+### Fixed vs. Variable Chunking
+Chose **fixed 4KB chunks** for simplicity in the initial CAS implementation. Variable-size chunking (Content-Defined Chunking with Rabin fingerprints) handles "byte-shift" scenarios better—where inserting bytes at the start of a file doesn't invalidate all subsequent chunks—but adds ~15-20% CPU overhead and implementation complexity. The 4KB size aligns with OS page size for efficient I/O.
+
+### QUIC vs. TCP
+**QUIC** was chosen over TCP for three reasons:
+1. **No Head-of-Line Blocking** - Multiple streams can be multiplexed; a lost packet only blocks its stream, not the entire connection
+2. **Faster Connection Migration** - As laptops/phones switch networks (WiFi → cellular), QUIC connections survive IP changes
+3. **Built-in TLS 1.3** - Zero-RTT connection establishment and mandatory encryption
+
+### SHA-256 vs. Faster Hashes
+**SHA-256** was chosen despite being slower than xxHash/Blake3 because:
+1. Collision resistance matters for content-addressing (birthday paradox: 2^128 operations needed)
+2. Widely trusted in production systems (Git, Bitcoin, TLS)
+3. Hardware acceleration (SHA-NI) available on modern CPUs
+
+### Merkle Trees vs. Bloom Filters
+**Merkle Trees** enable precise O(log N) identification of differing files. Bloom filters would be faster for "do we need to sync?" checks but provide only probabilistic answers and can't pinpoint *which* files differ.
+
+### SQLite vs. Custom Index
+**SQLite** (CGO-free via modernc.org/sqlite) provides ACID transactions for metadata without reinventing indexing. Trade-off: ~5MB binary size increase, but gains battle-tested reliability.
 
 ## Performance Characteristics
 
