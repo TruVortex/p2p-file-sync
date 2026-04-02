@@ -8,18 +8,18 @@ This document describes the architecture of a high-performance, decentralized fi
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                           P2P Sync Engine                            │
+│                           P2P Sync Engine                           │
 ├─────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐ │
-│  │     CLI     │  │   Watcher   │  │   Metrics   │  │  Logging   │ │
-│  │   (cobra)   │  │  (fsnotify) │  │(prometheus) │  │   (slog)   │ │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └─────┬──────┘ │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐  │
+│  │     CLI     │  │   Watcher   │  │   Metrics   │  │  Logging   │  │
+│  │   (cobra)   │  │  (fsnotify) │  │(prometheus) │  │   (slog)   │  │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └─────┬──────┘  │
 │         │                │                │                │        │
 ├─────────┴────────────────┴────────────────┴────────────────┴────────┤
-│                         Sync Manager                                 │
+│                         Sync Manager                                │
 │   ┌─────────────────────────────────────────────────────────────┐   │
-│   │  • Coordinates peer synchronization                          │   │
-│   │  • Manages concurrent chunk transfers                        │   │
+│   │  • Coordinates peer synchronization                         │   │
+│   │  • Manages concurrent chunk transfers                       │   │
 │   │  • Implements backpressure via bounded channels             │   │
 │   └─────────────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────────────┤
@@ -27,23 +27,23 @@ This document describes the architecture of a high-performance, decentralized fi
 │         │  Merkle Tree │◄────────────►│   Delta Sync     │          │
 │         │    (diff)    │              │ (rolling hash)   │          │
 │         └──────┬───────┘              └────────┬─────────┘          │
-│                │                               │                     │
-│                ▼                               ▼                     │
+│                │                               │                    │
+│                ▼                               ▼                    │
 │   ┌────────────────────────────────────────────────────────┐        │
-│   │              Content-Addressable Storage (CAS)          │        │
+│   │             Content-Addressable Storage (CAS)          │        │
 │   │  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐  │        │
 │   │  │ Chunker  │  │BlobStore │  │   Deduplication      │  │        │
 │   │  │ (4KB)    │  │ (sharded)│  │   (hash lookup)      │  │        │
 │   │  └──────────┘  └──────────┘  └──────────────────────┘  │        │
 │   └────────────────────────────────────────────────────────┘        │
 ├─────────────────────────────────────────────────────────────────────┤
-│                        Network Layer                                 │
+│                        Network Layer                                │
 │   ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐        │
 │   │    QUIC     │  │    NAT      │  │     Signaling        │        │
 │   │ (transport) │  │ (traversal) │  │     (discovery)      │        │
 │   └─────────────┘  └─────────────┘  └──────────────────────┘        │
 ├─────────────────────────────────────────────────────────────────────┤
-│                         Persistence                                  │
+│                         Persistence                                 │
 │   ┌─────────────────────────┐  ┌────────────────────────────┐       │
 │   │     SQLite (metadata)   │  │    Filesystem (chunks)     │       │
 │   │  • File paths → hashes  │  │  • .storage/chunks/ab/...  │       │
