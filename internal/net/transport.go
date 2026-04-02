@@ -482,6 +482,11 @@ func (t *Transport) removePeer(peer *Peer) {
 	}
 }
 
+// OpenStream opens a new stream to the peer.
+func (p *Peer) OpenStream(ctx context.Context) (*quic.Stream, error) {
+	return p.conn.OpenStreamSync(ctx)
+}
+
 // RequestChunks sends a chunk request to a peer and waits for response.
 func (t *Transport) RequestChunks(ctx context.Context, peer *Peer, hashes [][]byte) (*proto.ChunkResponse, error) {
 	stream, err := peer.conn.OpenStreamSync(ctx)
