@@ -135,6 +135,7 @@ func NewTransport(cfg *Config) (*Transport, error) {
 
 	// QUIC config with reasonable defaults
 	t.quicConfig = &quic.Config{
+		HandshakeIdleTimeout:  15 * time.Second,
 		MaxIdleTimeout:        30 * time.Second,
 		KeepAlivePeriod:       10 * time.Second,
 		MaxIncomingStreams:    1000,
@@ -151,12 +152,17 @@ func (t *Transport) LocalID() PeerID {
 
 // Listen starts accepting incoming connections.
 func (t *Transport) Listen() error {
-	addr, err := net.ResolveUDPAddr("udp", t.config.ListenAddr)
+	addr, err := net.ResolveUDPAddr("udp4", t.config.ListenAddr)
 	if err != nil {
 		return fmt.Errorf("resolving address: %w", err)
 	}
 
-	conn, err := net.ListenUDP("udp", addr)
+	// Ensure we bind to IPv4 (0.0.0.0) for cross-machine connectivity
+	if addr.IP == nil || addr.IP.IsUnspecified() {
+		addr.IP = net.IPv4zero
+	}
+
+	conn, err := net.ListenUDP("udp4", addr)
 	if err != nil {
 		return fmt.Errorf("listening UDP: %w", err)
 	}

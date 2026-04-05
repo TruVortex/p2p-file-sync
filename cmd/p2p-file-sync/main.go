@@ -305,6 +305,8 @@ var serveCmd = &cobra.Command{
 		if metricsAddr != "" {
 			fmt.Printf("   Metrics:   http://%s/metrics\n", metricsAddr)
 		}
+		fmt.Println("\n⚠️  Note: Ensure UDP port", port, "is allowed through your firewall")
+		fmt.Println("   Windows: Run as admin or allow through Windows Defender Firewall")
 		fmt.Println("\nWaiting for connections... (Ctrl+C to stop)")
 
 		logging.Info("daemon started",
