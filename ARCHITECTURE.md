@@ -360,7 +360,7 @@ func (d *Debouncer) ShouldProcess(path string) bool {
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                        SYNC OPERATION FLOW                        │
+│                        SYNC OPERATION FLOW                       │
 └──────────────────────────────────────────────────────────────────┘
 
   Local Peer                                          Remote Peer
