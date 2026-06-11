@@ -59,6 +59,7 @@ type Transport struct {
 	listener   *quic.Listener
 	localID    PeerID
 	localCert  *tls.Certificate
+	merkleRoot []byte
 	peers      map[PeerID]*Peer
 	peersMu    sync.RWMutex
 
@@ -104,6 +105,7 @@ func NewTransport(cfg *Config) (*Transport, error) {
 		onChunkRequest:     cfg.OnChunkRequest,
 		ctx:                ctx,
 		cancel:             cancel,
+		merkleRoot:         append([]byte(nil), cfg.MerkleRoot...),
 	}
 
 	// Generate or use provided certificate
@@ -326,7 +328,7 @@ func (t *Transport) performHandshake(conn *quic.Conn, stream *quic.Stream, peerI
 		CertFingerprint: t.localID[:],
 		PeerName:        t.config.PeerName,
 		Capabilities:    0,
-		MerkleRoot:      t.config.MerkleRoot,
+		MerkleRoot:      t.MerkleRoot(),
 		FileCount:       t.config.FileCount,
 		TotalSize:       t.config.TotalSize,
 	}
@@ -385,7 +387,7 @@ func (t *Transport) performHandshake(conn *quic.Conn, stream *quic.Stream, peerI
 		Accepted:        true,
 		CertFingerprint: t.localID[:],
 		PeerName:        t.config.PeerName,
-		MerkleRoot:      t.config.MerkleRoot,
+		MerkleRoot:      t.MerkleRoot(),
 		ProtocolVersion: proto.ProtocolVersion,
 	}
 
@@ -581,4 +583,12 @@ func generateSelfSignedCert(name string) (*tls.Certificate, error) {
 		Certificate: [][]byte{certDER},
 		PrivateKey:  priv,
 	}, nil
+}
+
+func (t *Transport) SetMerkleRoot(root []byte) {
+	t.merkleRoot = append([]byte(nil), root...)
+}
+
+func (t *Transport) MerkleRoot() []byte {
+	return append([]byte(nil), t.merkleRoot...)
 }

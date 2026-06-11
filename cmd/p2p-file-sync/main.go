@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"p2p-file-sync/internal/cas"
+	"p2p-file-sync/internal/diff"
 	"p2p-file-sync/internal/logging"
 	"p2p-file-sync/internal/merkle"
 	"p2p-file-sync/internal/metrics"
@@ -195,13 +196,13 @@ var serveCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("creating blob store: %w", err)
 		}
-
-		// Chunk all files in the directory
-		fmt.Println("📦 Indexing files...")
+		// Ensure local CAS is populated before sync
+		fmt.Println("📦 Indexing local files...")
 		fileCount, chunkCount, err := indexDirectory(absDir, store)
 		if err != nil {
 			return fmt.Errorf("indexing directory: %w", err)
 		}
+
 		fmt.Printf("   Indexed %d files, %d chunks\n", fileCount, chunkCount)
 
 		// Build Merkle tree
@@ -266,11 +267,35 @@ var serveCmd = &cobra.Command{
 			OnManifestRequest: func(peer *net.Peer, req *proto.ManifestRequest) *proto.ManifestResponse {
 				logging.Info("manifest request received", "peer", peer.Name)
 
-				// Convert merkle tree to manifest
-				root := convertTreeToManifest(tree.Root)
+				// Refresh chunk store
+				_, _, err := indexDirectory(absDir, store)
+				if err != nil {
+					logging.Error("reindex failed", "error", err)
+
+					root := convertTreeToManifest(tree.Root)
+					return &proto.ManifestResponse{
+						Root:      root,
+						NodeCount: uint64(countNodes(tree.Root)),
+					}
+				}
+
+				// Rebuild tree from current filesystem state
+				freshTree, err := merkle.BuildFromFS(absDir)
+				if err != nil {
+					logging.Error("merkle rebuild failed", "error", err)
+
+					root := convertTreeToManifest(tree.Root)
+					return &proto.ManifestResponse{
+						Root:      root,
+						NodeCount: uint64(countNodes(tree.Root)),
+					}
+				}
+
+				root := convertTreeToManifest(freshTree.Root)
+
 				return &proto.ManifestResponse{
 					Root:      root,
-					NodeCount: uint64(countNodes(tree.Root)),
+					NodeCount: uint64(countNodes(freshTree.Root)),
 				}
 			},
 		})
@@ -361,6 +386,11 @@ var syncCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("creating blob store: %w", err)
 		}
+		fmt.Println("📦 Indexing local files...")
+		_, _, err = indexDirectory(absDir, store)
+		if err != nil {
+			return fmt.Errorf("indexing directory: %w", err)
+		}
 
 		// Build local Merkle tree
 		fmt.Println("📊 Building local tree...")
@@ -399,11 +429,6 @@ var syncCmd = &cobra.Command{
 			remoteRootHex := fmt.Sprintf("%x", peer.MerkleRoot[:8])
 			fmt.Printf("   Local root:  %s...\n", localRootHex)
 			fmt.Printf("   Remote root: %s...\n", remoteRootHex)
-
-			if string(localRoot) == string(peer.MerkleRoot) {
-				fmt.Println("\n✓ Already in sync! No changes needed.")
-				return nil
-			}
 		}
 
 		// Request manifest from peer
@@ -420,7 +445,36 @@ var syncCmd = &cobra.Command{
 
 		// Collect all chunk hashes we need
 		fmt.Println("🔍 Computing diff...")
-		neededChunks := collectMissingChunks(manifest.Root, store)
+
+		localManifest := convertTreeToManifest(localTree.Root)
+
+		diffResult := diff.DiffTrees(
+			localManifest,
+			manifest.Root,
+		)
+
+		fmt.Printf(
+			"   Added: %d, Modified: %d, Deleted: %d\n",
+			len(diffResult.Added),
+			len(diffResult.Modified),
+			len(diffResult.Deleted),
+		)
+
+		var neededChunks [][]byte
+
+		for _, file := range diffResult.Added {
+			neededChunks = append(
+				neededChunks,
+				collectMissingChunks(file, store)...,
+			)
+		}
+
+		for _, file := range diffResult.Modified {
+			neededChunks = append(
+				neededChunks,
+				collectMissingChunks(file, store)...,
+			)
+		}
 
 		if len(neededChunks) == 0 {
 			fmt.Println("\n✓ All chunks already present locally!")
@@ -447,8 +501,7 @@ var syncCmd = &cobra.Command{
 				batch := neededChunks[i:end]
 				resp, err := transport.RequestChunks(ctx, peer, batch)
 				if err != nil {
-					logging.Error("chunk request failed", "error", err)
-					continue
+					return fmt.Errorf("chunk download failed: %w", err)
 				}
 
 				// Store received chunks
@@ -479,6 +532,18 @@ var syncCmd = &cobra.Command{
 		filesWritten, err := reconstructFiles(absDir, manifest.Root, store)
 		if err != nil {
 			return fmt.Errorf("reconstructing files: %w", err)
+		}
+
+		for _, path := range diffResult.Deleted {
+			fullPath := filepath.Join(absDir, path)
+
+			if err := os.Remove(fullPath); err != nil {
+				logging.Error(
+					"delete failed",
+					"path", fullPath,
+					"error", err,
+				)
+			}
 		}
 
 		fmt.Printf("\n✓ Sync complete! %d files synchronized\n", filesWritten)
