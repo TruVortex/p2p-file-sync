@@ -4,6 +4,15 @@ A high-performance, decentralized file synchronization engine built in Go. Uses 
 
 **NOTE:** Currently, the file sync system has some bugs, meaning that the project has limited functionality. However, the file system initialization works, and the sync infrastructure is in place.
 
+## Motivation
+
+This project was built as a technical demonstration of:
+- Content-addressable storage systems
+- Merkle tree-based state reconciliation
+- Efficient delta encoding algorithms
+- NAT traversal techniques
+- Modern Go concurrency patterns
+
 ## Features
 
 ### Core Technology
@@ -338,24 +347,3 @@ Chose **fixed 4KB chunks** for simplicity in the initial CAS implementation. Var
 - [ ] Selective sync (ignore patterns)
 - [ ] Compression (zstd) for chunk storage
 - [ ] Web UI for monitoring
-
-## Contributing
-
-This project was built as a technical demonstration of:
-- Content-addressable storage systems
-- Merkle tree-based state reconciliation
-- Efficient delta encoding algorithms
-- NAT traversal techniques
-- Modern Go concurrency patterns
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for implementation details.
-
-## Acknowledgments
-
-Built with:
-- [quic-go](https://github.com/quic-go/quic-go) - QUIC implementation
-- [cobra](https://github.com/spf13/cobra) - CLI framework
-- [mpb](https://github.com/vbauerster/mpb) - Progress bars
-- [fsnotify](https://github.com/fsnotify/fsnotify) - File system watcher
-- [modernc.org/sqlite](https://gitlab.com/cznic/sqlite) - CGO-free SQLite
-- Protocol Buffers - Efficient serialization
