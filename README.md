@@ -350,10 +350,6 @@ This project was built as a technical demonstration of:
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for implementation details.
 
-## License
-
-MIT License - see LICENSE file for details.
-
 ## Acknowledgments
 
 Built with:
