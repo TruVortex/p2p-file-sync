@@ -2,7 +2,7 @@
 
 A high-performance, decentralized file synchronization engine built in Go. Uses content-addressable storage, Merkle trees, and rsync-style delta encoding to minimize bandwidth and achieve O(log N) state reconciliation.
 
-**NOTE:** Currently, the file sync does not work. However, the file system initialization works, and the sync infrastructure is in place.
+**NOTE:** Currently, the file sync system has some bugs, meaning that the project has limited functionality. However, the file system initialization works, and the sync infrastructure is in place.
 
 ## Features
 
